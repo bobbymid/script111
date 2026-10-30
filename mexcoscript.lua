@@ -7,12 +7,12 @@ ScreenGui.Name = "ViolenceDistrictUltraUI"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
--- Переменные состояния функций
+-- Переменные состояния
 local menuOpen = false
 local espActive = false
 local speedActive = false
 local noclipActive = false
-local targetSpeed = 16 -- Дефолтная скорость Roblox
+local targetSpeed = 16
 local highlights = {}
 
 -- Делаем стандартный прицел игры прозрачным
@@ -122,23 +122,36 @@ Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 18
 Title.Font = Enum.Font.GothamBold
 
+----------------------------------------------------------------
+-- СОЗДАНИЕ КЛАССИЧЕСКОГО СКРОЛЛ-КОНТЕЙНЕРА (SCROLLING FRAME)
+----------------------------------------------------------------
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, 0, 1, -50)
+ScrollFrame.Position = UDim2.new(0, 0, 0, 45)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 4
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(180, 100, 255)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 280) -- Область прокрутки с запасом
+ScrollFrame.Parent = MainMenu
+
 local ListLayout = Instance.new("UIListLayout")
-ListLayout.Parent = MainMenu
+ListLayout.Parent = ScrollFrame
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ListLayout.Padding = UDim.new(0, 8)
+ListLayout.Padding = UDim.new(0, 10)
 ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local Padding = Instance.new("UIPadding")
-Padding.Parent = MainMenu
-Padding.PaddingTop = UDim.new(0, 50)
+Padding.Parent = ScrollFrame
+Padding.PaddingTop = UDim.new(0, 10)
 
--- Функция создания радиокнопок
+-- Функция создания радиокнопок внутри скролла
 local function createFeatureRadio(text, order)
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(0.9, 0, 0, 35)
     Container.BackgroundTransparency = 1
     Container.LayoutOrder = order
-    Container.Parent = MainMenu
+    Container.Parent = ScrollFrame
 
     local Label = Instance.new("TextLabel")
     Label.Size = UDim2.new(0.7, 0, 1, 0)
@@ -180,20 +193,18 @@ local function createFeatureRadio(text, order)
     return Radio, Dot, RadioStroke
 end
 
--- Генерируем 3 функции-переключателя
 local RadioESP, DotESP, StrokeESP = createFeatureRadio("Enable ESP (All Players)", 1)
 local RadioSpeed, DotSpeed, StrokeSpeed = createFeatureRadio("Enable SpeedHack", 2)
 
 ----------------------------------------------------------------
--- СОЗДАНИЕ ПОЛЗУНКА СКОРОСТИ (SLIDER)
+-- СОЗДАНИЕ ПОЛЗУНКА СКОРОСТИ
 ----------------------------------------------------------------
 local SliderContainer = Instance.new("Frame")
 SliderContainer.Size = UDim2.new(0.9, 0, 0, 30)
 SliderContainer.BackgroundTransparency = 1
 SliderContainer.LayoutOrder = 3
-SliderContainer.Parent = MainMenu
+SliderContainer.Parent = ScrollFrame
 
--- Полоса ползунка
 local SliderTrack = Instance.new("Frame")
 SliderTrack.Size = UDim2.new(0.65, 0, 0, 6)
 SliderTrack.Position = UDim2.new(0, 0, 0.5, -3)
@@ -209,7 +220,6 @@ TrackStroke.Thickness = 1
 TrackStroke.Color = Color3.fromRGB(130, 50, 200)
 TrackStroke.Parent = SliderTrack
 
--- Ползунок (Кнопка, которую двигают)
 local SliderBtn = Instance.new("TextButton")
 SliderBtn.Size = UDim2.new(0, 16, 0, 16)
 SliderBtn.Position = UDim2.new(0, 0, 0.5, -8)
@@ -221,7 +231,6 @@ local SliderBtnCorner = Instance.new("UICorner")
 SliderBtnCorner.CornerRadius = UDim.new(1, 0)
 SliderBtnCorner.Parent = SliderBtn
 
--- Текст инфы о текущей скорости справа от ползунка
 local SpeedInfo = Instance.new("TextLabel")
 SpeedInfo.Size = UDim2.new(0.3, 0, 1, 0)
 SpeedInfo.Position = UDim2.new(0.7, 0, 0, 0)
@@ -233,16 +242,15 @@ SpeedInfo.Font = Enum.Font.GothamBold
 SpeedInfo.TextXAlignment = Enum.TextXAlignment.Right
 SpeedInfo.Parent = SliderContainer
 
--- Добавляем третью радиокнопку для NoClip после слайдера
 local RadioClip, DotClip, StrokeClip = createFeatureRadio("Horizontal NoClip Walls", 4)
 
 ----------------------------------------------------------------
--- НАСТРОЙКА ЗЕРКАЛЬНОЙ АНИМАЦИИ ОТКРЫТИЯ/ЗАКРЫТИЯ МЕНЮ
+-- НАСТРОЙКА ЗЕРКАЛЬНОЙ АНИМАЦИИ МЕНЮ
 ----------------------------------------------------------------
 local TweenService = game:GetService("TweenService")
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- Меню увеличено до 280x250 для вмещения ползунка
+-- Меню открывается до 280x250, всё лишнее скроллится
 local openTween = TweenService:Create(MainMenu, tweenInfo, {Size = UDim2.new(0, 280, 0, 250)})
 local closeTween = TweenService:Create(MainMenu, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)})
 
@@ -316,7 +324,6 @@ local function updateSlider(input)
     
     SliderBtn.Position = UDim2.new(percentage, -8, 0.5, -8)
     
-    -- Вычисляем значение скорости на основе позиции ползунка
     targetSpeed = math.floor(minSpeed + (percentage * (maxSpeed - minSpeed)))
     SpeedInfo.Text = "Speed: " .. tostring(targetSpeed)
 end
@@ -344,13 +351,11 @@ game:GetService("UserInputService").InputEnded:Connect(function(input)
     end
 end)
 
--- Переключатель SpeedHack
 RadioSpeed.MouseButton1Click:Connect(function()
     speedActive = not speedActive
     animateRadio(speedActive, DotSpeed, StrokeSpeed)
 end)
 
--- Постоянное поддержание скорости персонажа в цикле
 game:GetService("RunService").Heartbeat:Connect(function()
     local lp = game.Players.LocalPlayer
     local char = lp.Character
@@ -377,39 +382,47 @@ game:GetService("RunService").Stepped:Connect(function()
     if noclipActive then
         local lp = game.Players.LocalPlayer
         local char = lp.Character
-        if char then
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        
+        if hrp and hum then
+            -- Полностью отключаем коллизии для всех частей тела на клиенте
             for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide == true then
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        -- Сканируем окружение лучами
-                        local rayDirections = {
-                            hrp.CFrame.LookVector,
-                            -hrp.CFrame.LookVector,
-                            hrp.CFrame.RightVector,
-                            -hrp.CFrame.RightVector
-                        }
-                        local hitWall = false
-                        local params = RaycastParams.new()
-                        params.FilterDescendantsInstances = {char}
-                        params.FilterType = Enum.RaycastFilterType.Exclude
-                        
-                        for _, dir in pairs(rayDirections) do
-                            local res = workspace:Raycast(hrp.Position, dir * 2.5, params)
-                            if res and res.Instance then
-                                -- math.abs(Normal.Y) < 0.7 означает вертикальные препятствия (стены)
-                                if math.abs(res.Normal.Y) < 0.7 then
-                                    hitWall = true
-                                    break
-                                end
-                            end
-                        end
-                        
-                        -- Выключаем коллизию только при столкновении со стенами (не с полом)
-                        if hitWall then
-                            part.CanCollide = false
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+            
+            -- Проверяем направление движения персонажа
+            if hum.MoveDirection.Magnitude > 0 then
+                local rayDirections = {
+                    hrp.CFrame.LookVector,
+                    -hrp.CFrame.LookVector,
+                    hrp.CFrame.RightVector,
+                    -hrp.CFrame.RightVector
+                }
+                
+                local hitWall = false
+                local params = RaycastParams.new()
+                params.FilterDescendantsInstances = {char}
+                params.FilterType = Enum.RaycastFilterType.Exclude
+                
+                for _, dir in pairs(rayDirections) do
+                    local res = workspace:Raycast(hrp.Position, dir * 2.5, params)
+                    if res and res.Instance then
+                        -- math.abs(Normal.Y) < 0.7 означает вертикальные препятствия (стены)
+                        if math.abs(res.Normal.Y) < 0.7 then
+                            hitWall = true
+                            break
                         end
                     end
+                end
+                
+                -- Если мы упираемся в стену, плавно проталкиваем CFrame вперед микрошагами,
+                -- чтобы сервер успевал регистрировать позиции и не откатывал назад
+                if hitWall then
+                    local pushDistance = 0.25 -- Микрошаг продвижения вглубь стены
+                    hrp.CFrame = hrp.CFrame + (hum.MoveDirection * pushDistance)
                 end
             end
         end
