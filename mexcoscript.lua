@@ -222,39 +222,43 @@ local function clearESP()
     table.clear(highlights)
 end
 
-local function applyESP(player)
-    if player == game.Players.LocalPlayer then return end
-    local function addHighlight(character)
-        if not espActive then return end
-        if highlights[player] then 
-            highlights[player]:Destroy() 
+-- Мощный круговой ESP: ищет всех персонажей с Humanoid в Workspace
+local function updateESP()
+    if not espActive then return end
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+            local pl = game.Players:GetPlayerFromCharacter(obj)
+            -- Не подсвечиваем себя
+            if pl ~= game.Players.LocalPlayer then
+                if not obj:FindFirstChild("ESPHighlight") then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "ESPHighlight"
+                    highlight.Parent = obj
+                    highlight.FillColor = Color3.fromRGB(0, 255, 100)
+                    highlight.FillTransparency = 0.4
+                    highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    highlights[obj] = highlight
+                end
+            end
         end
-        
-        local highlight = Instance.new("Highlight")
-        highlight.Parent = character
-        highlight.FillColor = Color3.fromRGB(0, 255, 100)
-        highlight.FillTransparency = 0.5
-        highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlights[player] = highlight
     end
-    if player.Character then addHighlight(player.Character) end
-    player.CharacterAdded:Connect(addHighlight)
 end
+
+-- Поток постоянного обновления ESP (раз в 1 секунду)
+task.spawn(function()
+    while task.wait(1) do
+        if espActive then updateESP() else clearESP() end
+    end
+end)
 
 RadioESP.MouseButton1Click:Connect(function()
     espActive = not espActive
     animateRadio(espActive, DotESP, StrokeESP)
-    if espActive then
-        for _, p in pairs(game.Players:GetPlayers()) do 
-            applyESP(p) 
-        end
-        game.Players.PlayerAdded:Connect(applyESP)
-    else
-        clearESP()
-    end
+    if not espActive then clearESP() end
 end)
 
+-- Исправленный телепорт с обходом античита (заморозка на месте)
 local function tpToFurtherGenerator()
     local player = game.Players.LocalPlayer
     local character = player.Character
@@ -280,7 +284,11 @@ local function tpToFurtherGenerator()
         end
         
         if furthestGen then
-            hrp.CFrame = furthestGen.CFrame * CFrame.new(0, 4.5, 0)
+            -- Чтобы сервер не откинул назад, временно "якорим" персонажа на новой точке
+            hrp.Anchored = true
+            hrp.CFrame = furthestGen.CFrame * CFrame.new(0, 5, 0)
+            task.wait(0.2) -- Даем серверу время просчитать наши новые координаты
+            hrp.Anchored = false
         end
     end
 end
@@ -289,6 +297,7 @@ BtnGen.MouseButton1Click:Connect(function()
     tpToFurtherGenerator()
 end)
 
+-- Исправленный троллинг паллет с микро-телепортом для обхода проверок дистанции
 local function dropClosestPallet()
     local player = game.Players.LocalPlayer
     local character = player.Character
@@ -315,21 +324,34 @@ local function dropClosestPallet()
             end
         end
         
-        if closestPallet and minDistance < 25 then
-            pcall(function()
-                local prompt = closestPallet:FindFirstChildWhichIsA(
-                    "ProximityPrompt", 
-                    true
-                )
-                if prompt then
-                    fireproximityprompt(prompt)
-                else
-                    local intactPallet = closestPallet.Intact.Pallet
-                    firetouchinterest(hrp, intactPallet, 0)
-                    task.wait(0.1)
-                    firetouchinterest(hrp, intactPallet, 1)
-                end
-            end)
+        -- Если нашли ближайшую паллету
+        if closestPallet then
+            local intact = closestPallet:FindFirstChild("Intact")
+            local targetPart = intact and intact:FindFirstChild("Pallet")
+            
+            if targetPart then
+                -- Запоминаем где мы стояли
+                local oldCFrame = hrp.CFrame
+                
+                -- На одну миллисекунду перемещаемся прямо к паллете, чтобы сервер одобрил клик
+                hrp.CFrame = targetPart.CFrame * CFrame.new(0, 2, 0)
+                task.wait(0.05)
+                
+                pcall(function()
+                    local prompt = closestPallet:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if prompt then
+                        fireproximityprompt(prompt)
+                    else
+                        firetouchinterest(hrp, targetPart, 0)
+                        task.wait(0.05)
+                        firetouchinterest(hrp, targetPart, 1)
+                    end
+                end)
+                
+                -- Мгновенно возвращаемся обратно, где стояли
+                task.wait(0.05)
+                hrp.CFrame = oldCFrame
+            end
         end
     end
 end
@@ -344,3 +366,4 @@ game.Players.PlayerRemoving:Connect(function(player)
         highlights[player] = nil
     end
 end)
+
