@@ -7,10 +7,15 @@ ScreenGui.Name = "ViolenceDistrictUltraUI"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
+-- Переменные состояния функций
 local menuOpen = false
 local espActive = false
+local speedActive = false
+local noclipActive = false
+local targetSpeed = 16 -- Дефолтная скорость Roblox
 local highlights = {}
 
+-- Делаем стандартный прицел игры прозрачным
 pcall(function()
     local lp = game.Players.LocalPlayer
     if lp and lp:WaitForChild("PlayerGui") then
@@ -28,6 +33,9 @@ pcall(function()
     end
 end)
 
+----------------------------------------------------------------
+-- 1. Круглая кнопка "M" (С возможностью перетаскивания)
+----------------------------------------------------------------
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Name = "ToggleButton"
 ToggleButton.Parent = ScreenGui
@@ -109,7 +117,7 @@ local Title = Instance.new("TextLabel")
 Title.Parent = MainMenu
 Title.Size = UDim2.new(1, 0, 0, 45)
 Title.BackgroundTransparency = 1
-Title.Text = "VIOLENCE DISTRICT v2"
+Title.Text = "VIOLENCE DISTRICT v3"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 18
 Title.Font = Enum.Font.GothamBold
@@ -117,86 +125,125 @@ Title.Font = Enum.Font.GothamBold
 local ListLayout = Instance.new("UIListLayout")
 ListLayout.Parent = MainMenu
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ListLayout.Padding = UDim.new(0, 10)
+ListLayout.Padding = UDim.new(0, 8)
 ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local Padding = Instance.new("UIPadding")
 Padding.Parent = MainMenu
 Padding.PaddingTop = UDim.new(0, 50)
 
-local ContainerESP = Instance.new("Frame")
-ContainerESP.Size = UDim2.new(0.9, 0, 0, 40)
-ContainerESP.BackgroundTransparency = 1
-ContainerESP.LayoutOrder = 1
-ContainerESP.Parent = MainMenu
+-- Функция создания радиокнопок
+local function createFeatureRadio(text, order)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(0.9, 0, 0, 35)
+    Container.BackgroundTransparency = 1
+    Container.LayoutOrder = order
+    Container.Parent = MainMenu
 
-local LabelESP = Instance.new("TextLabel")
-LabelESP.Size = UDim2.new(0.7, 0, 1, 0)
-LabelESP.BackgroundTransparency = 1
-LabelESP.Text = "Enable ESP (All Players)"
-LabelESP.TextColor3 = Color3.fromRGB(210, 210, 210)
-LabelESP.TextSize = 14
-LabelESP.Font = Enum.Font.Gotham
-LabelESP.TextXAlignment = Enum.TextXAlignment.Left
-LabelESP.Parent = ContainerESP
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.7, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(210, 210, 210)
+    Label.TextSize = 14
+    Label.Font = Enum.Font.Gotham
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Container
 
-local RadioESP = Instance.new("TextButton")
-RadioESP.Size = UDim2.new(0, 22, 0, 22)
-RadioESP.Position = UDim2.new(1, -25, 0.5, -11)
-RadioESP.BackgroundColor3 = Color3.fromRGB(30, 20, 40)
-RadioESP.Text = ""
-RadioESP.Parent = ContainerESP
+    local Radio = Instance.new("TextButton")
+    Radio.Size = UDim2.new(0, 22, 0, 22)
+    Radio.Position = UDim2.new(1, -25, 0.5, -11)
+    Radio.BackgroundColor3 = Color3.fromRGB(30, 20, 40)
+    Radio.Text = ""
+    Radio.Parent = Container
 
-local RadioCorner = Instance.new("UICorner")
-RadioCorner.CornerRadius = UDim.new(1, 0)
-RadioCorner.Parent = RadioESP
+    local RadioCorner = Instance.new("UICorner")
+    RadioCorner.CornerRadius = UDim.new(1, 0)
+    RadioCorner.Parent = Radio
 
-local RadioStroke = Instance.new("UIStroke")
-RadioStroke.Thickness = 2
-RadioStroke.Color = Color3.fromRGB(130, 50, 200)
-RadioStroke.Parent = RadioESP
+    local RadioStroke = Instance.new("UIStroke")
+    RadioStroke.Thickness = 2
+    RadioStroke.Color = Color3.fromRGB(130, 50, 200)
+    RadioStroke.Parent = Radio
 
-local DotESP = Instance.new("Frame")
-DotESP.Size = UDim2.new(0, 0, 0, 0)
-DotESP.Position = UDim2.new(0.5, 0, 0.5, 0)
-DotESP.AnchorPoint = Vector2.new(0.5, 0.5)
-DotESP.BackgroundColor3 = Color3.fromRGB(180, 100, 255)
-DotESP.Parent = RadioESP
+    local Dot = Instance.new("Frame")
+    Dot.Size = UDim2.new(0, 0, 0, 0)
+    Dot.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Dot.AnchorPoint = Vector2.new(0.5, 0.5)
+    Dot.BackgroundColor3 = Color3.fromRGB(180, 100, 255)
+    Dot.Parent = Radio
 
-local DotCorner = Instance.new("UICorner")
-DotCorner.CornerRadius = UDim.new(1, 0)
-DotCorner.Parent = DotESP
+    local DotCorner = Instance.new("UICorner")
+    DotCorner.CornerRadius = UDim.new(1, 0)
+    DotCorner.Parent = Dot
 
-local function createRegularButton(text, order)
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(0.9, 0, 0, 35)
-    Button.BackgroundColor3 = Color3.fromRGB(35, 20, 50)
-    Button.Text = text
-    Button.TextColor3 = Color3.fromRGB(230, 230, 230)
-    Button.TextSize = 14
-    Button.Font = Enum.Font.GothamBold
-    Button.LayoutOrder = order
-    Button.Parent = MainMenu
-
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 6)
-    Corner.Parent = Button
-
-    local Stroke = Instance.new("UIStroke")
-    Stroke.Thickness = 1
-    Stroke.Color = Color3.fromRGB(150, 60, 220)
-    Stroke.Parent = Button
-
-    return Button
+    return Radio, Dot, RadioStroke
 end
 
-local BtnGen = createRegularButton("TP to Further Gen (+1m)", 2)
-local BtnPallet = createRegularButton("Troll Closest Pallet", 3)
+-- Генерируем 3 функции-переключателя
+local RadioESP, DotESP, StrokeESP = createFeatureRadio("Enable ESP (All Players)", 1)
+local RadioSpeed, DotSpeed, StrokeSpeed = createFeatureRadio("Enable SpeedHack", 2)
 
+----------------------------------------------------------------
+-- СОЗДАНИЕ ПОЛЗУНКА СКОРОСТИ (SLIDER)
+----------------------------------------------------------------
+local SliderContainer = Instance.new("Frame")
+SliderContainer.Size = UDim2.new(0.9, 0, 0, 30)
+SliderContainer.BackgroundTransparency = 1
+SliderContainer.LayoutOrder = 3
+SliderContainer.Parent = MainMenu
+
+-- Полоса ползунка
+local SliderTrack = Instance.new("Frame")
+SliderTrack.Size = UDim2.new(0.65, 0, 0, 6)
+SliderTrack.Position = UDim2.new(0, 0, 0.5, -3)
+SliderTrack.BackgroundColor3 = Color3.fromRGB(35, 25, 50)
+SliderTrack.Parent = SliderContainer
+
+local TrackCorner = Instance.new("UICorner")
+TrackCorner.CornerRadius = UDim.new(1, 0)
+TrackCorner.Parent = SliderTrack
+
+local TrackStroke = Instance.new("UIStroke")
+TrackStroke.Thickness = 1
+TrackStroke.Color = Color3.fromRGB(130, 50, 200)
+TrackStroke.Parent = SliderTrack
+
+-- Ползунок (Кнопка, которую двигают)
+local SliderBtn = Instance.new("TextButton")
+SliderBtn.Size = UDim2.new(0, 16, 0, 16)
+SliderBtn.Position = UDim2.new(0, 0, 0.5, -8)
+SliderBtn.BackgroundColor3 = Color3.fromRGB(180, 100, 255)
+SliderBtn.Text = ""
+SliderBtn.Parent = SliderTrack
+
+local SliderBtnCorner = Instance.new("UICorner")
+SliderBtnCorner.CornerRadius = UDim.new(1, 0)
+SliderBtnCorner.Parent = SliderBtn
+
+-- Текст инфы о текущей скорости справа от ползунка
+local SpeedInfo = Instance.new("TextLabel")
+SpeedInfo.Size = UDim2.new(0.3, 0, 1, 0)
+SpeedInfo.Position = UDim2.new(0.7, 0, 0, 0)
+SpeedInfo.BackgroundTransparency = 1
+SpeedInfo.Text = "Speed: 16"
+SpeedInfo.TextColor3 = Color3.fromRGB(180, 100, 255)
+SpeedInfo.TextSize = 13
+SpeedInfo.Font = Enum.Font.GothamBold
+SpeedInfo.TextXAlignment = Enum.TextXAlignment.Right
+SpeedInfo.Parent = SliderContainer
+
+-- Добавляем третью радиокнопку для NoClip после слайдера
+local RadioClip, DotClip, StrokeClip = createFeatureRadio("Horizontal NoClip Walls", 4)
+
+----------------------------------------------------------------
+-- НАСТРОЙКА ЗЕРКАЛЬНОЙ АНИМАЦИИ ОТКРЫТИЯ/ЗАКРЫТИЯ МЕНЮ
+----------------------------------------------------------------
 local TweenService = game:GetService("TweenService")
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-local openTween = TweenService:Create(MainMenu, tweenInfo, {Size = UDim2.new(0, 280, 0, 230)})
+-- Меню увеличено до 280x250 для вмещения ползунка
+local openTween = TweenService:Create(MainMenu, tweenInfo, {Size = UDim2.new(0, 280, 0, 250)})
 local closeTween = TweenService:Create(MainMenu, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)})
 
 ToggleButton.MouseButton1Click:Connect(function()
@@ -255,115 +302,118 @@ RadioESP.MouseButton1Click:Connect(function()
     if not espActive then clearESP() end
 end)
 
--- Профессиональное перемещение микро-шагами для полного обхода античита
-local function bypassBlink(targetPos)
-    local player = game.Players.LocalPlayer
-    local char = player.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+----------------------------------------------------------------
+-- ЛОГИКА ПОЛЗУНКА СКОРОСТИ ДЛЯ СЕНСОРНЫХ ЭКРАНОВ (ANDROID)
+----------------------------------------------------------------
+local sliderDragging = false
+local minSpeed = 16
+local maxSpeed = 150
 
-    -- Отключаем коллизии тела, чтобы не застрять в стенах
-    local noclipping
-    noclipping = game:GetService("RunService").Stepped:Connect(function()
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-    end)
-
-    -- Двигаемся микро-шагами по вектору к цели каждый микрокадр
-    local distance = (targetPos.Position - hrp.Position).Magnitude
-    local stepSize = 4 -- Размер одного шага (оптимально для обхода проверок сервера)
-    local steps = math.floor(distance / stepSize)
-    local direction = (targetPos.Position - hrp.Position).Unit
-
-    for i = 1, steps do
-        if not hrp or not char then break end
-        hrp.CFrame = hrp.CFrame + (direction * stepSize)
-        game:GetService("RunService").Heartbeat:Wait() -- Ждем один физический кадр
-    end
-
-    -- Дожимаем финальную позицию
-    hrp.CFrame = targetPos
-    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-
-    -- Включаем коллизии обратно
-    if noclipping then noclipping:Disconnect() end
-end
-
--- Телепорт к самому дальнему генератору через микро-шаги
-local function tpToFurtherGenerator()
-    local map = workspace:FindFirstChild("Map")
-    local gensFolder = map and map:FindFirstChild("Gens")
-    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+local function updateSlider(input)
+    local trackWidth = SliderTrack.AbsoluteSize.X
+    local relativeX = input.Position.X - SliderTrack.AbsolutePosition.X
+    local percentage = math.clamp(relativeX / trackWidth, 0, 1)
     
-    if hrp and gensFolder then
-        local furthestGen = nil
-        local maxDistance = -1
-        
-        for _, gen in pairs(gensFolder:GetChildren()) do
-            if gen:IsA("Model") and gen.Name == "Generator" then
-                local body = gen:FindFirstChild("GeneratorBody")
-                if body and body:IsA("BasePart") then
-                    local distance = (hrp.Position - body.Position).Magnitude
-                    if distance > maxDistance then
-                        maxDistance = distance
-                        furthestGen = body
-                    end
-                end
-            end
-        end
-        
-        if furthestGen then
-            -- Перемещаемся на безопасную высоту над дальним генератором
-            local targetPosition = furthestGen.CFrame * CFrame.new(0, 4, 0)
-            bypassBlink(targetPosition)
-        end
-    end
+    SliderBtn.Position = UDim2.new(percentage, -8, 0.5, -8)
+    
+    -- Вычисляем значение скорости на основе позиции ползунка
+    targetSpeed = math.floor(minSpeed + (percentage * (maxSpeed - minSpeed)))
+    SpeedInfo.Text = "Speed: " .. tostring(targetSpeed)
 end
 
-BtnGen.MouseButton1Click:Connect(function()
-    tpToFurtherGenerator()
+SliderBtn.InputBegan:Connect(function(input)
+    local t = input.UserInputType
+    if t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch then
+        sliderDragging = true
+    end
 end)
 
--- Телепорт К паллете (Без возврата назад, чтобы ты мог сам нажать её и не багаться)
-local function tpToClosestPallet()
-    local map = workspace:FindFirstChild("Map")
-    local palletsFolder = map and map:FindFirstChild("Pallets")
-    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if sliderDragging then
+        local t = input.UserInputType
+        if t == Enum.UserInputType.MouseMovement or t == Enum.UserInputType.Touch then
+            updateSlider(input)
+        end
+    end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    local t = input.UserInputType
+    if t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch then
+        sliderDragging = false
+    end
+end)
+
+-- Переключатель SpeedHack
+RadioSpeed.MouseButton1Click:Connect(function()
+    speedActive = not speedActive
+    animateRadio(speedActive, DotSpeed, StrokeSpeed)
+end)
+
+-- Постоянное поддержание скорости персонажа в цикле
+game:GetService("RunService").Heartbeat:Connect(function()
+    local lp = game.Players.LocalPlayer
+    local char = lp.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
     
-    if hrp and palletsFolder then
-        local closestPallet = nil
-        local minDistance = math.huge
-        
-        for _, palletModel in pairs(palletsFolder:GetChildren()) do
-            if palletModel:IsA("Model") and palletModel.Name == "Newpallet" then
-                local intact = palletModel:FindFirstChild("Intact")
-                local mainPart = intact and intact:FindFirstChild("Pallet")
-                
-                if mainPart and mainPart:IsA("BasePart") then
-                    local distance = (hrp.Position - mainPart.Position).Magnitude
-                    if distance < minDistance then
-                        minDistance = distance
-                        closestPallet = palletModel
+    if hum then
+        if speedActive then
+            hum.WalkSpeed = targetSpeed
+        else
+            hum.WalkSpeed = 16
+        end
+    end
+end)
+
+----------------------------------------------------------------
+-- ЛОГИКА УМНОГО NOCLIP (ТОЛЬКО ДЛЯ ГОРИЗОНТАЛЬНЫХ СТЕН)
+----------------------------------------------------------------
+RadioClip.MouseButton1Click:Connect(function()
+    noclipActive = not noclipActive
+    animateRadio(noclipActive, DotClip, StrokeClip)
+end)
+
+game:GetService("RunService").Stepped:Connect(function()
+    if noclipActive then
+        local lp = game.Players.LocalPlayer
+        local char = lp.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide == true then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        -- Сканируем окружение лучами
+                        local rayDirections = {
+                            hrp.CFrame.LookVector,
+                            -hrp.CFrame.LookVector,
+                            hrp.CFrame.RightVector,
+                            -hrp.CFrame.RightVector
+                        }
+                        local hitWall = false
+                        local params = RaycastParams.new()
+                        params.FilterDescendantsInstances = {char}
+                        params.FilterType = Enum.RaycastFilterType.Exclude
+                        
+                        for _, dir in pairs(rayDirections) do
+                            local res = workspace:Raycast(hrp.Position, dir * 2.5, params)
+                            if res and res.Instance then
+                                -- math.abs(Normal.Y) < 0.7 означает вертикальные препятствия (стены)
+                                if math.abs(res.Normal.Y) < 0.7 then
+                                    hitWall = true
+                                    break
+                                end
+                            end
+                        end
+                        
+                        -- Выключаем коллизию только при столкновении со стенами (не с полом)
+                        if hitWall then
+                            part.CanCollide = false
+                        end
                     end
                 end
             end
         end
-        
-        if closestPallet then
-            local intact = closestPallet:FindFirstChild("Intact")
-            local targetPart = intact and intact:FindFirstChild("Pallet")
-            
-            if targetPart then
-                -- Перемещаемся прямо к паллете, чтобы ты её сбросил
-                bypassBlink(targetPart.CFrame * CFrame.new(0, 2, 0))
-            end
-        end
     end
-end
-
-BtnPallet.MouseButton1Click:Connect(function()
-    tpToClosestPallet()
 end)
 
 game.Players.PlayerRemoving:Connect(function(player)
