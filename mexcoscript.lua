@@ -9,8 +9,6 @@ ScreenGui.ResetOnSpawn = false
 
 local menuOpen = false
 local espActive = false
-local tpGenActive = false
-local trollPalletActive = false
 local highlights = {}
 
 pcall(function()
@@ -126,56 +124,74 @@ local Padding = Instance.new("UIPadding")
 Padding.Parent = MainMenu
 Padding.PaddingTop = UDim.new(0, 50)
 
-local function createFeatureButton(text, order)
-    local Container = Instance.new("Frame")
-    Container.Size = UDim2.new(0.9, 0, 0, 40)
-    Container.BackgroundTransparency = 1
-    Container.LayoutOrder = order
-    Container.Parent = MainMenu
+local ContainerESP = Instance.new("Frame")
+ContainerESP.Size = UDim2.new(0.9, 0, 0, 40)
+ContainerESP.BackgroundTransparency = 1
+ContainerESP.LayoutOrder = 1
+ContainerESP.Parent = MainMenu
 
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.7, 0, 1, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = text
-    Label.TextColor3 = Color3.fromRGB(210, 210, 210)
-    Label.TextSize = 14
-    Label.Font = Enum.Font.Gotham
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Parent = Container
+local LabelESP = Instance.new("TextLabel")
+LabelESP.Size = UDim2.new(0.7, 0, 1, 0)
+LabelESP.BackgroundTransparency = 1
+LabelESP.Text = "Enable ESP (All Players)"
+LabelESP.TextColor3 = Color3.fromRGB(210, 210, 210)
+LabelESP.TextSize = 14
+LabelESP.Font = Enum.Font.Gotham
+LabelESP.TextXAlignment = Enum.TextXAlignment.Left
+LabelESP.Parent = ContainerESP
 
-    local Radio = Instance.new("TextButton")
-    Radio.Size = UDim2.new(0, 22, 0, 22)
-    Radio.Position = UDim2.new(1, -25, 0.5, -11)
-    Radio.BackgroundColor3 = Color3.fromRGB(30, 20, 40)
-    Radio.Text = ""
-    Radio.Parent = Container
+local RadioESP = Instance.new("TextButton")
+RadioESP.Size = UDim2.new(0, 22, 0, 22)
+RadioESP.Position = UDim2.new(1, -25, 0.5, -11)
+RadioESP.BackgroundColor3 = Color3.fromRGB(30, 20, 40)
+RadioESP.Text = ""
+RadioESP.Parent = ContainerESP
 
-    local RadioCorner = Instance.new("UICorner")
-    RadioCorner.CornerRadius = UDim.new(1, 0)
-    RadioCorner.Parent = Radio
+local RadioCorner = Instance.new("UICorner")
+RadioCorner.CornerRadius = UDim.new(1, 0)
+RadioCorner.Parent = RadioESP
 
-    local RadioStroke = Instance.new("UIStroke")
-    RadioStroke.Thickness = 2
-    RadioStroke.Color = Color3.fromRGB(130, 50, 200)
-    RadioStroke.Parent = Radio
+local RadioStroke = Instance.new("UIStroke")
+RadioStroke.Thickness = 2
+RadioStroke.Color = Color3.fromRGB(130, 50, 200)
+RadioStroke.Parent = RadioESP
 
-    local Dot = Instance.new("Frame")
-    Dot.Size = UDim2.new(0, 0, 0, 0)
-    Dot.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Dot.AnchorPoint = Vector2.new(0.5, 0.5)
-    Dot.BackgroundColor3 = Color3.fromRGB(180, 100, 255)
-    Dot.Parent = Radio
+local DotESP = Instance.new("Frame")
+DotESP.Size = UDim2.new(0, 0, 0, 0)
+DotESP.Position = UDim2.new(0.5, 0, 0.5, 0)
+DotESP.AnchorPoint = Vector2.new(0.5, 0.5)
+DotESP.BackgroundColor3 = Color3.fromRGB(180, 100, 255)
+DotESP.Parent = RadioESP
 
-    local DotCorner = Instance.new("UICorner")
-    DotCorner.CornerRadius = UDim.new(1, 0)
-    DotCorner.Parent = Dot
+local DotCorner = Instance.new("UICorner")
+DotCorner.CornerRadius = UDim.new(1, 0)
+DotCorner.Parent = DotESP
 
-    return Radio, Dot, RadioStroke
+local function createRegularButton(text, order)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0.9, 0, 0, 35)
+    Button.BackgroundColor3 = Color3.fromRGB(35, 20, 50)
+    Button.Text = text
+    Button.TextColor3 = Color3.fromRGB(230, 230, 230)
+    Button.TextSize = 14
+    Button.Font = Enum.Font.GothamBold
+    Button.LayoutOrder = order
+    Button.Parent = MainMenu
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Button
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Thickness = 1
+    Stroke.Color = Color3.fromRGB(150, 60, 220)
+    Stroke.Parent = Button
+
+    return Button
 end
 
-local RadioESP, DotESP, StrokeESP = createFeatureButton("Enable ESP (All Players)", 1)
-local RadioGen, DotGen, StrokeGen = createFeatureButton("TP to Further Gen (+1m)", 2)
-local RadioPallet, DotPallet, StrokePallet = createFeatureButton("Troll Closest Pallet", 3)
+local BtnGen = createRegularButton("TP to Further Gen (+1m)", 2)
+local BtnPallet = createRegularButton("Troll Closest Pallet", 3)
 
 local TweenService = game:GetService("TweenService")
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -269,16 +285,8 @@ local function tpToFurtherGenerator()
     end
 end
 
-RadioGen.MouseButton1Click:Connect(function()
-    tpGenActive = not tpGenActive
-    animateRadio(tpGenActive, DotGen, StrokeGen)
-    
-    if tpGenActive then
-        tpToFurtherGenerator()
-        task.wait(0.2)
-        tpGenActive = false
-        animateRadio(false, DotGen, StrokeGen)
-    end
+BtnGen.MouseButton1Click:Connect(function()
+    tpToFurtherGenerator()
 end)
 
 local function dropClosestPallet()
@@ -326,16 +334,8 @@ local function dropClosestPallet()
     end
 end
 
-RadioPallet.MouseButton1Click:Connect(function()
-    trollPalletActive = not trollPalletActive
-    animateRadio(trollPalletActive, DotPallet, StrokePallet)
-    
-    if trollPalletActive then
-        dropClosestPallet()
-        task.wait(0.2)
-        trollPalletActive = false
-        animateRadio(false, DotPallet, StrokePallet)
-    end
+BtnPallet.MouseButton1Click:Connect(function()
+    dropClosestPallet()
 end)
 
 game.Players.PlayerRemoving:Connect(function(player)
@@ -344,4 +344,3 @@ game.Players.PlayerRemoving:Connect(function(player)
         highlights[player] = nil
     end
 end)
-
