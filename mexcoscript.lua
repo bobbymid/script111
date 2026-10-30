@@ -255,13 +255,45 @@ RadioESP.MouseButton1Click:Connect(function()
     if not espActive then clearESP() end
 end)
 
--- Обновленный телепорт: убран Anchored, изменены оси появления
-local function tpToFurtherGenerator()
+-- Функция "Умного" скоростного перемещения (Tween) сквозь препятствия
+local function tweenObject(targetCFrame)
     local player = game.Players.LocalPlayer
-    local character = player.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if hrp then
+        -- Вычисляем расстояние, чтобы рассчитать правильное время полета
+        local distance = (hrp.Position - targetCFrame.Position).Magnitude
+        -- Скорость полета (чем выше число, тем быстрее перемещение)
+        local speed = 250 
+        local duration = distance / speed
+        
+        -- Перед стартом отключаем коллизии, чтобы лететь СКВОЗЬ стены
+        local connection
+        connection = game:GetService("RunService").Stepped:Connect(function()
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end)
+        
+        -- Запускаем плавное перемещение через TweenService
+        local ts = game:GetService("TweenService")
+        local ti = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+        local tween = ts:Create(hrp, ti, {CFrame = targetCFrame})
+        
+        tween:Play()
+        tween.Completed:Wait() -- Ждем, пока персонаж долетит до точки
+        
+        -- Возвращаем коллизии обратно, когда прилетели
+        if connection then connection:Disconnect() end
+    end
+end
+
+-- Скоростной телепорт к самому дальнему генератору
+local function tpToFurtherGenerator()
     local map = workspace:FindFirstChild("Map")
     local gensFolder = map and map:FindFirstChild("Gens")
+    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     
     if hrp and gensFolder then
         local furthestGen = nil
@@ -281,15 +313,9 @@ local function tpToFurtherGenerator()
         end
         
         if furthestGen then
-            -- Переносим плавно по CFrame на +3 метра над точкой GeneratorBody
-            -- Без использования Anchored, чтобы не триггерить жесткий стоп античита
-            local targetPos = furthestGen.CFrame * CFrame.new(0, 3, 0)
-            hrp.CFrame = targetPos
-            -- Очищаем накопленную скорость персонажа, чтобы не швыряло по карте
-            pcall(function()
-                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-            end)
+            -- Летим на точку над генератором (координаты +3 по Y)
+            local targetPosition = furthestGen.CFrame * CFrame.new(0, 3, 0)
+            tweenObject(targetPosition)
         end
     end
 end
@@ -298,13 +324,11 @@ BtnGen.MouseButton1Click:Connect(function()
     tpToFurtherGenerator()
 end)
 
--- Исправленный троллинг паллет: увеличены тайминги для отклика сервера
+-- Скоростной троллинг паллеты с подлетом, сбросом и возвращением
 local function dropClosestPallet()
-    local player = game.Players.LocalPlayer
-    local character = player.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
     local map = workspace:FindFirstChild("Map")
     local palletsFolder = map and map:FindFirstChild("Pallets")
+    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     
     if hrp and palletsFolder then
         local closestPallet = nil
@@ -332,26 +356,26 @@ local function dropClosestPallet()
             if targetPart then
                 local oldCFrame = hrp.CFrame
                 
-                -- Переносим к паллете
-                hrp.CFrame = targetPart.CFrame * CFrame.new(0, 1.5, 0)
-                task.wait(0.15) -- Увеличили задержку, чтобы сервер понял, что мы РЯДОМ
+                -- 1. Быстро летим прямо к паллете сквозь стены
+                tweenObject(targetPart.CFrame * CFrame.new(0, 1.5, 0))
+                task.wait(0.1)
                 
+                -- 2. Сбрасываем её (прожимаем Prompt или Touch)
                 pcall(function()
                     local prompt = closestPallet:FindFirstChildWhichIsA("ProximityPrompt", true)
                     if prompt then
-                        -- Имитируем удержание кнопки "E" на 0.2 секунды
-                        task.spawn(function()
-                            fireproximityprompt(prompt)
-                        end)
+                        fireproximityprompt(prompt)
                     else
                         firetouchinterest(hrp, targetPart, 0)
-                        task.wait(0.1)
+                        task.wait(0.05)
                         firetouchinterest(hrp, targetPart, 1)
                     end
                 end)
                 
-                task.wait(0.15) -- Даем время на выполнение анимации сброса паллеты
-                hrp.CFrame = oldCFrame -- Возвращаемся назад
+                task.wait(0.15) -- Даем долю секунды на анимацию сброса паллеты
+                
+                -- 3. Быстро летим обратно на исходную позицию
+                tweenObject(oldCFrame)
             end
         end
     end
