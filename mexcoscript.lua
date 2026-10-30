@@ -222,13 +222,11 @@ local function clearESP()
     table.clear(highlights)
 end
 
--- Мощный круговой ESP: ищет всех персонажей с Humanoid в Workspace
 local function updateESP()
     if not espActive then return end
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
             local pl = game.Players:GetPlayerFromCharacter(obj)
-            -- Не подсвечиваем себя
             if pl ~= game.Players.LocalPlayer then
                 if not obj:FindFirstChild("ESPHighlight") then
                     local highlight = Instance.new("Highlight")
@@ -245,7 +243,6 @@ local function updateESP()
     end
 end
 
--- Поток постоянного обновления ESP (раз в 1 секунду)
 task.spawn(function()
     while task.wait(1) do
         if espActive then updateESP() else clearESP() end
@@ -258,7 +255,7 @@ RadioESP.MouseButton1Click:Connect(function()
     if not espActive then clearESP() end
 end)
 
--- Исправленный телепорт с обходом античита (заморозка на месте)
+-- Обновленный телепорт: убран Anchored, изменены оси появления
 local function tpToFurtherGenerator()
     local player = game.Players.LocalPlayer
     local character = player.Character
@@ -284,11 +281,15 @@ local function tpToFurtherGenerator()
         end
         
         if furthestGen then
-            -- Чтобы сервер не откинул назад, временно "якорим" персонажа на новой точке
-            hrp.Anchored = true
-            hrp.CFrame = furthestGen.CFrame * CFrame.new(0, 5, 0)
-            task.wait(0.2) -- Даем серверу время просчитать наши новые координаты
-            hrp.Anchored = false
+            -- Переносим плавно по CFrame на +3 метра над точкой GeneratorBody
+            -- Без использования Anchored, чтобы не триггерить жесткий стоп античита
+            local targetPos = furthestGen.CFrame * CFrame.new(0, 3, 0)
+            hrp.CFrame = targetPos
+            -- Очищаем накопленную скорость персонажа, чтобы не швыряло по карте
+            pcall(function()
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            end)
         end
     end
 end
@@ -297,7 +298,7 @@ BtnGen.MouseButton1Click:Connect(function()
     tpToFurtherGenerator()
 end)
 
--- Исправленный троллинг паллет с микро-телепортом для обхода проверок дистанции
+-- Исправленный троллинг паллет: увеличены тайминги для отклика сервера
 local function dropClosestPallet()
     local player = game.Players.LocalPlayer
     local character = player.Character
@@ -324,33 +325,33 @@ local function dropClosestPallet()
             end
         end
         
-        -- Если нашли ближайшую паллету
         if closestPallet then
             local intact = closestPallet:FindFirstChild("Intact")
             local targetPart = intact and intact:FindFirstChild("Pallet")
             
             if targetPart then
-                -- Запоминаем где мы стояли
                 local oldCFrame = hrp.CFrame
                 
-                -- На одну миллисекунду перемещаемся прямо к паллете, чтобы сервер одобрил клик
-                hrp.CFrame = targetPart.CFrame * CFrame.new(0, 2, 0)
-                task.wait(0.05)
+                -- Переносим к паллете
+                hrp.CFrame = targetPart.CFrame * CFrame.new(0, 1.5, 0)
+                task.wait(0.15) -- Увеличили задержку, чтобы сервер понял, что мы РЯДОМ
                 
                 pcall(function()
                     local prompt = closestPallet:FindFirstChildWhichIsA("ProximityPrompt", true)
                     if prompt then
-                        fireproximityprompt(prompt)
+                        -- Имитируем удержание кнопки "E" на 0.2 секунды
+                        task.spawn(function()
+                            fireproximityprompt(prompt)
+                        end)
                     else
                         firetouchinterest(hrp, targetPart, 0)
-                        task.wait(0.05)
+                        task.wait(0.1)
                         firetouchinterest(hrp, targetPart, 1)
                     end
                 end)
                 
-                -- Мгновенно возвращаемся обратно, где стояли
-                task.wait(0.05)
-                hrp.CFrame = oldCFrame
+                task.wait(0.15) -- Даем время на выполнение анимации сброса паллеты
+                hrp.CFrame = oldCFrame -- Возвращаемся назад
             end
         end
     end
@@ -366,4 +367,3 @@ game.Players.PlayerRemoving:Connect(function(player)
         highlights[player] = nil
     end
 end)
-
