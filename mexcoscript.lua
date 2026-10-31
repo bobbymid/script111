@@ -138,7 +138,7 @@ local function startMainCheat()
     }
 
     -- ID для эмоции Griddy
-    local GRIDDY_ANIM_ID = "rbxassetid://131695692404479" 
+    local GRIDDY_ANIM_ID = "rbxassetid://112138829029738" 
     local griddyTrack = nil
     local loopConnection = nil
 
