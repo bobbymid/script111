@@ -1,5 +1,5 @@
 -- ===================================================================
--- Violence District - Optimized Mobile/PC Script
+-- Violence District - Fixed Script (Noclip Fix + Speed Override)
 -- ===================================================================
 
 local Players = game:GetService("Players")
@@ -8,10 +8,9 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
 ----------------------------------------------------------------------
--- 1. НАСТРОЙКИ И СОСТОЯНИЯ (STATES)
+-- 1. НАСТРОЙКИ И СОСТОЯНИЯ
 ----------------------------------------------------------------------
 local States = {
     Noclip = false,
@@ -22,12 +21,11 @@ local States = {
 }
 
 local Connections = {
-    Noclip = nil,
-    CharacterAdded = nil
+    Noclip = nil
 }
 
 ----------------------------------------------------------------------
--- 2. СИСТЕМА NOCLIP (ИСПРАВЛЕНА: Стена больше не отталкивает)
+-- 2. СИСТЕМА NOCLIP (С принудительной сменой состояния NoPhysics)
 ----------------------------------------------------------------------
 local function toggleNoclip(enable)
     States.Noclip = enable
@@ -38,10 +36,16 @@ local function toggleNoclip(enable)
     end
 
     if enable then
-        -- Подключаемся к Stepped (срабатывает ДО просчета физики кадра)
         Connections.Noclip = RunService.Stepped:Connect(function()
             local character = LocalPlayer.Character
             if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    -- Отключаем встроенную физику Humanoid (NoPhysics state = 11)
+                    humanoid:ChangeState(Enum.HumanoidStateType.NoPhysics)
+                end
+                
+                -- Отключаем коллизию у всех частей персонажа
                 for _, part in ipairs(character:GetDescendants()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
@@ -50,9 +54,12 @@ local function toggleNoclip(enable)
             end
         end)
     else
-        -- Восстанавливаем коллизию при отключении
         local character = LocalPlayer.Character
         if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
             for _, part in ipairs(character:GetDescendants()) do
                 if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                     part.CanCollide = true
@@ -63,27 +70,18 @@ local function toggleNoclip(enable)
 end
 
 ----------------------------------------------------------------------
--- 3. СИСТЕМА УСКОРЕНИЯ (SPEED BOOST)
+-- 3. СИСТЕМА УСКОРЕНИЯ (Непрерывный перехват в Heartbeat)
 ----------------------------------------------------------------------
-local function updateSpeed()
-    local character = LocalPlayer.Character
-    if character then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            if States.SpeedEnabled then
+RunService.Heartbeat:Connect(function()
+    if States.SpeedEnabled then
+        local character = LocalPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
                 humanoid.WalkSpeed = States.TargetSpeed
-            else
-                humanoid.WalkSpeed = States.DefaultSpeed
             end
         end
     end
-end
-
--- Авто-восстановление скорости при респавне
-LocalPlayer.CharacterAdded:Connect(function(char)
-    char:WaitForChild("Humanoid")
-    task.wait(0.2)
-    updateSpeed()
 end)
 
 ----------------------------------------------------------------------
@@ -135,7 +133,7 @@ end
 Players.PlayerAdded:Connect(applyESP)
 
 ----------------------------------------------------------------------
--- 5. МЕХАНИКА СВОБОДНОГО ПЕРЕТАСКИВАНИЯ КНОПКИ (TOUCH / MOUSE DRAG)
+-- 5. МЕХАНИКА СВОБОДНОГО ПЕРЕТАСКИВАНИЯ КНОПКИ (Touch / Mouse)
 ----------------------------------------------------------------------
 local function makeDraggable(guiObject)
     local dragging = false
@@ -190,7 +188,7 @@ ScreenGui.Name = "ViolenceDistrictMenu"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = parentGui
 
--- Перетаскиваемая кнопка "M" (Главное меню)
+-- Перетаскиваемая кнопка "M"
 local MenuButton = Instance.new("TextButton")
 MenuButton.Name = "OpenButton"
 MenuButton.Size = UDim2.new(0, 50, 0, 50)
@@ -211,7 +209,6 @@ btnStroke.Color = Color3.fromRGB(255, 70, 70)
 btnStroke.Thickness = 2
 btnStroke.Parent = MenuButton
 
--- Подключаем сенсорное/мышиное перетаскивание к кнопке "M"
 makeDraggable(MenuButton)
 
 -- Главное окно
@@ -233,7 +230,6 @@ frameStroke.Color = Color3.fromRGB(60, 60, 75)
 frameStroke.Thickness = 1.5
 frameStroke.Parent = MainFrame
 
--- Заголовок меню
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -247,7 +243,6 @@ local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 12)
 titleCorner.Parent = Title
 
--- Функция создания кнопок переключателей
 local function createToggleButton(name, text, posY, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.9, 0, 0, 40)
@@ -280,23 +275,26 @@ local function createToggleButton(name, text, posY, callback)
     return btn
 end
 
--- Кнопка Noclip
 createToggleButton("Noclip", "Noclip", 55, function(enabled)
     toggleNoclip(enabled)
 end)
 
--- Кнопка Speed Boost
 createToggleButton("Speed", "Speed Boost", 105, function(enabled)
     States.SpeedEnabled = enabled
-    updateSpeed()
+    if not enabled then
+        local character = LocalPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid.WalkSpeed = States.DefaultSpeed end
+        end
+    end
 end)
 
--- Кнопка ESP
 createToggleButton("ESP", "Highlight ESP", 155, function(enabled)
     toggleESP(enabled)
 end)
 
--- Ползунок / Кнопки управления скоростью (+ / -)
+-- Панель настройки скорости (+ / -)
 local SpeedFrame = Instance.new("Frame")
 SpeedFrame.Size = UDim2.new(0.9, 0, 0, 50)
 SpeedFrame.Position = UDim2.new(0.05, 0, 0, 210)
@@ -338,17 +336,15 @@ PlusBtn.Parent = SpeedFrame
 MinusBtn.MouseButton1Click:Connect(function()
     States.TargetSpeed = math.max(16, States.TargetSpeed - 8)
     SpeedLabel.Text = "Speed: " .. tostring(States.TargetSpeed)
-    if States.SpeedEnabled then updateSpeed() end
 end)
 
 PlusBtn.MouseButton1Click:Connect(function()
     States.TargetSpeed = math.min(120, States.TargetSpeed + 8)
     SpeedLabel.Text = "Speed: " .. tostring(States.TargetSpeed)
-    if States.SpeedEnabled then updateSpeed() end
 end)
 
 ----------------------------------------------------------------------
--- 7. АНИМАЦИЯ ОТКРЫТИЯ И ЗАКРЫТИЯ МЕНЮ
+-- 7. АНИМАЦИЯ ОКНА
 ----------------------------------------------------------------------
 local menuOpen = false
 local function toggleMenu()
