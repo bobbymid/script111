@@ -137,18 +137,18 @@ local function startMainCheat()
         GriddyEnabled = false
     }
 
-    -- ID для эмоции Griddy
-    local GRIDDY_ANIM_ID = "rbxassetid://112138829029738" 
-    local griddyTrack = nil
+    -- Логика Griddy Emote
+    local TARGET_EMOTE_NAME = "Griddy" 
+    local emoteTrack = nil
     local loopConnection = nil
 
-    local function stopGriddy()
+    local function stopEmote()
         if loopConnection then loopConnection:Disconnect() loopConnection = nil end
-        if griddyTrack then griddyTrack:Stop() griddyTrack = nil end
+        if emoteTrack then emoteTrack:Stop() emoteTrack = nil end
     end
 
-    local function startGriddy()
-        stopGriddy()
+    local function startEmote()
+        stopEmote()
         if not States.GriddyEnabled then return end
         
         local character = LocalPlayer.Character
@@ -158,45 +158,55 @@ local function startMainCheat()
         local animator = humanoid:WaitForChild("Animator", 5)
         if not animator then return end
 
+        local animId = "rbxassetid://131695692404479" 
+        
+        if TARGET_EMOTE_NAME ~= "Griddy" then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                if string.find(string.lower(track.Name), string.lower(TARGET_EMOTE_NAME)) then
+                    animId = track.Animation.AnimationId
+                    break
+                end
+            end
+        end
+
         local animation = Instance.new("Animation")
-        animation.AnimationId = GRIDDY_ANIM_ID
+        animation.AnimationId = animId
 
-        griddyTrack = animator:LoadAnimation(animation)
-        griddyTrack.Priority = Enum.AnimationPriority.Action4
-        griddyTrack.Looped = true
-        griddyTrack:Play()
+        emoteTrack = animator:LoadAnimation(animation)
+        emoteTrack.Priority = Enum.AnimationPriority.Action4
+        emoteTrack.Looped = true
+        emoteTrack:Play()
 
+        local cleanTargetId = string.match(animId, "%d+")
+        
         loopConnection = RunService.Heartbeat:Connect(function()
             if not States.GriddyEnabled then
-                stopGriddy()
+                stopEmote()
                 return
             end
 
             if not character or not character:IsDescendantOf(workspace) then
-                stopGriddy()
+                stopEmote()
                 return
             end
 
-            if griddyTrack and not griddyTrack.IsPlaying then
-                griddyTrack:Play()
+            if emoteTrack and not emoteTrack.IsPlaying then
+                emoteTrack:Play()
             end
 
             for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
                 local trackId = string.match(track.Animation.AnimationId, "%d+")
-                local griddyIdClean = string.match(GRIDDY_ANIM_ID, "%d+")
-                
-                if trackId ~= griddyIdClean then
+                if trackId ~= cleanTargetId then
                     track:Stop(0)
                 end
             end
         end)
     end
 
-    -- Перезапуск при возрождении/смерти для Griddy
     LocalPlayer.CharacterAdded:Connect(function()
         if States.GriddyEnabled then
             task.wait(1.5)
-            startGriddy()
+            startEmote()
         end
     end)
 
@@ -224,16 +234,19 @@ local function startMainCheat()
 
     local function toggleESP(enable)
         States.ESPEnabled = enable
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local highlight = player.Character:FindFirstChild("ESPHighlight")
-                if highlight then
-                    highlight.Enabled = enable
-                elseif enable then
-                    applyESP(player)
+        local function updatePlayersESP()
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local highlight = player.Character:FindFirstChild("ESPHighlight")
+                    if highlight then
+                        highlight.Enabled = enable
+                    elseif enable then
+                        applyESP(player)
+                    end
                 end
             end
         end
+        pcall(updatePlayersESP)
     end
 
     for _, player in ipairs(Players:GetPlayers()) do applyESP(player) end
@@ -332,7 +345,7 @@ local function startMainCheat()
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 320, 0, 355) -- Увеличена высота под три кнопки
+    MainFrame.Size = UDim2.new(0, 320, 0, 355)
     MainFrame.Position = UDim2.new(0.5, -160, 0.5, -177)
     MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
     MainFrame.BackgroundTransparency = 0.2
@@ -423,9 +436,9 @@ local function startMainCheat()
     createToggleButton("Griddy Emote", function(enabled)
         States.GriddyEnabled = enabled
         if enabled then
-            startGriddy()
+            startEmote()
         else
-            stopGriddy()
+            stopEmote()
         end
     end)
 
