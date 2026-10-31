@@ -1,5 +1,5 @@
 -- ===================================================================
--- Violence District - Key System, ESP & Clean UI
+-- Violence District - Key System, ESP, Auto Parry & Clean UI
 -- ===================================================================
 
 local Players = game:GetService("Players")
@@ -52,7 +52,6 @@ kStroke.Thickness = 2
 kStroke.Transparency = 0.5
 kStroke.Parent = KeyFrame
 
--- Заголовок ключа
 local KeyTitle = Instance.new("TextLabel")
 KeyTitle.Size = UDim2.new(1, 0, 0, 40)
 KeyTitle.BackgroundTransparency = 1
@@ -62,7 +61,6 @@ KeyTitle.TextSize = 18
 KeyTitle.Font = Enum.Font.GothamBlack
 KeyTitle.Parent = KeyFrame
 
--- Гиперссылка / Текст Telegram
 local LinkButton = Instance.new("TextButton")
 LinkButton.Size = UDim2.new(1, 0, 0, 30)
 LinkButton.Position = UDim2.new(0, 0, 0, 45)
@@ -82,7 +80,6 @@ LinkButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Текстовое поле для ввода ключа
 local KeyBox = Instance.new("TextBox")
 KeyBox.Size = UDim2.new(0.85, 0, 0, 40)
 KeyBox.Position = UDim2.new(0.075, 0, 0, 85)
@@ -104,7 +101,6 @@ boxStroke.Color = Color3.fromRGB(50, 50, 60)
 boxStroke.Thickness = 1
 boxStroke.Parent = KeyBox
 
--- Кнопка Send
 local SendBtn = Instance.new("TextButton")
 SendBtn.Size = UDim2.new(0.85, 0, 0, 40)
 SendBtn.Position = UDim2.new(0.075, 0, 0, 140)
@@ -119,7 +115,6 @@ local sendCorner = Instance.new("UICorner")
 sendCorner.CornerRadius = UDim.new(0, 8)
 sendCorner.Parent = SendBtn
 
--- Статус сообщения (ошибка/успех)
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
 StatusLabel.Position = UDim2.new(0, 0, 0, 185)
@@ -137,7 +132,8 @@ local function startMainCheat()
     KeyGui:Destroy()
 
     local States = {
-        ESPEnabled = false
+        ESPEnabled = false,
+        AutoParryEnabled = false
     }
 
     -- ESP Система
@@ -178,6 +174,35 @@ local function startMainCheat()
 
     for _, player in ipairs(Players:GetPlayers()) do applyESP(player) end
     Players.PlayerAdded:Connect(applyESP)
+
+    -- Логика Auto Parry (для кинжала)
+    RunService.Heartbeat:Connect(function()
+        if not States.AutoParryEnabled then return end
+        
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+        local myHrp = character.HumanoidRootPart
+
+        -- Проверяем окружение на наличие врагов/хитбоксов близко к вам (например, в радиусе 12 стад)
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local enemyHrp = player.Character:FindFirstChild("HumanoidRootPart")
+                if enemyHrp then
+                    local distance = (myHrp.Position - enemyHrp.Position).Magnitude
+                    if distance <= 12 then -- Дистанция срабатывания парирования
+                        -- Попытка вызвать событие парирования через ReplicatedStorage (если в игре есть RemoteEvent для кинжала)
+                        local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") or game:GetService("ReplicatedStorage")
+                        local parryEvent = remotes:FindFirstChild("Parry") or remotes:FindFirstChild("DaggerParry") or remotes:FindFirstChild("UseAbility")
+                        
+                        if parryEvent and parryEvent:IsA("RemoteEvent") then
+                            parryEvent:FireServer()
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end)
 
     -- Перетаскивание кнопки
     local function makeDraggable(guiObject)
@@ -245,8 +270,8 @@ local function startMainCheat()
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 320, 0, 250)
-    MainFrame.Position = UDim2.new(0.5, -160, 0.5, -125)
+    MainFrame.Size = UDim2.new(0, 320, 0, 300) -- Увеличена высота под две кнопки
+    MainFrame.Position = UDim2.new(0.5, -160, 0.5, -150)
     MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
     MainFrame.BackgroundTransparency = 0.2
     MainFrame.Visible = false
@@ -330,7 +355,9 @@ local function startMainCheat()
         return btn
     end
 
+    -- Создаем кнопки функций
     createToggleButton("Highlight ESP", function(enabled) toggleESP(enabled) end)
+    createToggleButton("Auto Parry", function(enabled) States.AutoParryEnabled = enabled end)
 
     local menuOpen = false
     MenuButton.MouseButton1Click:Connect(function()
@@ -339,7 +366,7 @@ local function startMainCheat()
             MainFrame.Visible = true
             MainFrame.Size = UDim2.new(0, 320, 0, 0)
             TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 320, 0, 250)
+                Size = UDim2.new(0, 320, 0, 300)
             }):Play()
             btnGlow.Visible = true
         else
