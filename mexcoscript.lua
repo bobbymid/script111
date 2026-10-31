@@ -1,5 +1,5 @@
 -- ===================================================================
--- Violence District - CFrame Movement & Noclip Fix (Futuristic UI)
+-- Violence District - ESP & Clean UI Fix
 -- ===================================================================
 
 local Players = game:GetService("Players")
@@ -13,47 +13,11 @@ local LocalPlayer = Players.LocalPlayer
 -- 1. НАСТРОЙКИ И СОСТОЯНИЯ
 ----------------------------------------------------------------------
 local States = {
-    Noclip = false,
-    SpeedEnabled = false,
-    TargetSpeed = 32,
-    DefaultSpeed = 16,
     ESPEnabled = false
 }
 
 ----------------------------------------------------------------------
--- 2. ЦИКЛ ОБХОДА АНТИЧИТА И РЕАЛИЗАЦИЯ NOCLIP / SPEED ЧЕРЕЗ CFRAME
-----------------------------------------------------------------------
-RunService.Heartbeat:Connect(function(dt)
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    
-    if hrp and humanoid then
-        if States.Noclip then
-            for _, part in ipairs(character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
-            end
-            
-            if humanoid.MoveDirection.Magnitude > 0 then
-                local speed = States.SpeedEnabled and States.TargetSpeed or humanoid.WalkSpeed
-                hrp.CFrame = hrp.CFrame + (humanoid.MoveDirection * speed * dt)
-                hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
-            end
-        elseif States.SpeedEnabled then
-            if humanoid.MoveDirection.Magnitude > 0 then
-                local moveDir = humanoid.MoveDirection
-                hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * States.TargetSpeed, hrp.AssemblyLinearVelocity.Y, moveDir.Z * States.TargetSpeed)
-            end
-        end
-    end
-end)
-
-----------------------------------------------------------------------
--- 3. СИСТЕМА ПОДСВЕТКИ ИГРОКОВ (HIGHLIGHT ESP)
+-- 2. СИСТЕМА ПОДСВЕТКИ ИГРОКОВ (HIGHLIGHT ESP)
 ----------------------------------------------------------------------
 local function applyESP(player)
     if player == LocalPlayer then return end
@@ -102,7 +66,7 @@ end
 Players.PlayerAdded:Connect(applyESP)
 
 ----------------------------------------------------------------------
--- 4. МЕХАНИКА СВОБОДНОГО ПЕРЕТАСКИВАНИЯ КНОПКИ
+-- 3. МЕХАНИКА СВОБОДНОГО ПЕРЕТАСКИВАНИЯ КНОПКИ
 ----------------------------------------------------------------------
 local function makeDraggable(guiObject)
     local dragging = false
@@ -146,7 +110,7 @@ local function makeDraggable(guiObject)
 end
 
 ----------------------------------------------------------------------
--- 5. СОЗДАНИЕ ФУТУРИСТИЧНОГО ИНТЕРФЕЙСА (GUI)
+-- 4. СОЗДАНИЕ ФУТУРИСТИЧНОГО ИНТЕРФЕЙСА (GUI)
 ----------------------------------------------------------------------
 local parentGui = LocalPlayer:WaitForChild("PlayerGui")
 local oldGui = parentGui:FindFirstChild("ViolenceDistrictMenu")
@@ -195,8 +159,8 @@ makeDraggable(MenuButton)
 -- Главное окно
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 400)
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -200)
+MainFrame.Size = UDim2.new(0, 320, 0, 250) -- Уменьшена высота под оставшийся функционал
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -125)
 MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
 MainFrame.BackgroundTransparency = 0.2
 MainFrame.Visible = false
@@ -304,73 +268,10 @@ local function createToggleButton(text, callback)
     return btn
 end
 
-createToggleButton("Noclip", function(enabled) States.Noclip = enabled end)
-createToggleButton("Speed Boost", function(enabled) States.SpeedEnabled = enabled end)
 createToggleButton("Highlight ESP", function(enabled) toggleESP(enabled) end)
 
--- Панель настройки скорости
-local SpeedFrame = Instance.new("Frame")
-SpeedFrame.Size = UDim2.new(0.85, 0, 0, 60)
-SpeedFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-SpeedFrame.Parent = ButtonContainer
-
-local speedCorner = Instance.new("UICorner")
-speedCorner.CornerRadius = UDim.new(0, 10)
-speedCorner.Parent = SpeedFrame
-
-local speedStroke = Instance.new("UIStroke")
-speedStroke.Color = Color3.fromRGB(50, 50, 60)
-speedStroke.Thickness = 1
-speedStroke.Parent = SpeedFrame
-
-local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(0.5, 0, 1, 0)
-SpeedLabel.Position = UDim2.new(0.25, 0, 0, 0)
-SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "SPEED: " .. tostring(States.TargetSpeed)
-SpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedLabel.TextSize = 16
-SpeedLabel.Font = Enum.Font.SourceSansSemibold
-SpeedLabel.Parent = SpeedFrame
-
-local MinusBtn = Instance.new("TextButton")
-MinusBtn.Size = UDim2.new(0.2, 0, 0.6, 0)
-MinusBtn.Position = UDim2.new(0.05, 0, 0.2, 0)
-MinusBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-MinusBtn.Text = "-"
-MinusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinusBtn.TextSize = 20
-MinusBtn.Font = Enum.Font.GothamBold
-MinusBtn.Parent = SpeedFrame
-local minusCorner = Instance.new("UICorner")
-minusCorner.CornerRadius = UDim.new(0, 8)
-minusCorner.Parent = MinusBtn
-
-local PlusBtn = Instance.new("TextButton")
-PlusBtn.Size = UDim2.new(0.2, 0, 0.6, 0)
-PlusBtn.Position = UDim2.new(0.75, 0, 0.2, 0)
-PlusBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-PlusBtn.Text = "+"
-PlusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-PlusBtn.TextSize = 20
-PlusBtn.Font = Enum.Font.GothamBold
-PlusBtn.Parent = SpeedFrame
-local plusCorner = Instance.new("UICorner")
-plusCorner.CornerRadius = UDim.new(0, 8)
-plusCorner.Parent = PlusBtn
-
-MinusBtn.MouseButton1Click:Connect(function()
-    States.TargetSpeed = math.max(16, States.TargetSpeed - 8)
-    SpeedLabel.Text = "SPEED: " .. tostring(States.TargetSpeed)
-end)
-
-PlusBtn.MouseButton1Click:Connect(function()
-    States.TargetSpeed = math.min(120, States.TargetSpeed + 8)
-    SpeedLabel.Text = "SPEED: " .. tostring(States.TargetSpeed)
-end)
-
 ----------------------------------------------------------------------
--- 6. АНИМАЦИЯ ОКНА И ЛОГИКА ОТКРЫТИЯ
+-- 5. АНИМАЦИЯ ОКНА И ЛОГИКА ОТКРЫТИЯ
 ----------------------------------------------------------------------
 local menuOpen = false
 
@@ -380,7 +281,7 @@ MenuButton.MouseButton1Click:Connect(function()
         MainFrame.Visible = true
         MainFrame.Size = UDim2.new(0, 320, 0, 0)
         TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 320, 0, 400)
+            Size = UDim2.new(0, 320, 0, 250)
         }):Play()
         btnGlow.Visible = true
     else
