@@ -1,5 +1,5 @@
 -- ===================================================================
--- Violence District - Fixed Script (Noclip Fix + Speed Override)
+-- Violence District - CFrame Movement & Noclip Fix
 -- ===================================================================
 
 local Players = game:GetService("Players")
@@ -20,72 +20,43 @@ local States = {
     ESPEnabled = false
 }
 
-local Connections = {
-    Noclip = nil
-}
-
 ----------------------------------------------------------------------
--- 2. СИСТЕМА NOCLIP (С принудительной сменой состояния NoPhysics)
+-- 2. ЦИКЛ ОБХОДА АНТИЧИТА И РЕАЛИЗАЦИЯ NOCLIP / SPEED ЧЕРЕЗ CFRAME
 ----------------------------------------------------------------------
-local function toggleNoclip(enable)
-    States.Noclip = enable
+RunService.Heartbeat:Connect(function(dt)
+    local character = LocalPlayer.Character
+    if not character then return end
     
-    if Connections.Noclip then
-        Connections.Noclip:Disconnect()
-        Connections.Noclip = nil
-    end
-
-    if enable then
-        Connections.Noclip = RunService.Stepped:Connect(function()
-            local character = LocalPlayer.Character
-            if character then
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    -- Отключаем встроенную физику Humanoid (NoPhysics state = 11)
-                    humanoid:ChangeState(Enum.HumanoidStateType.NoPhysics)
-                end
-                
-                -- Отключаем коллизию у всех частей персонажа
-                for _, part in ipairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end)
-    else
-        local character = LocalPlayer.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-            end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    
+    if hrp and humanoid then
+        -- Если включен Noclip, отключаем физическую коллизию для всех частей
+        if States.Noclip then
             for _, part in ipairs(character:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.CanCollide = true
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
                 end
             end
-        end
-    end
-end
-
-----------------------------------------------------------------------
--- 3. СИСТЕМА УСКОРЕНИЯ (Непрерывный перехват в Heartbeat)
-----------------------------------------------------------------------
-RunService.Heartbeat:Connect(function()
-    if States.SpeedEnabled then
-        local character = LocalPlayer.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.WalkSpeed = States.TargetSpeed
+            
+            -- Плавное перемещение через CFrame сквозь стены без отката
+            if humanoid.MoveDirection.Magnitude > 0 then
+                local speed = States.SpeedEnabled and States.TargetSpeed or humanoid.WalkSpeed
+                hrp.CFrame = hrp.CFrame + (humanoid.MoveDirection * speed * dt)
+                hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
+            end
+        elseif States.SpeedEnabled then
+            -- Если только ускорение (без ноуклипа), разгоняем через AssemblyLinearVelocity
+            if humanoid.MoveDirection.Magnitude > 0 then
+                local moveDir = humanoid.MoveDirection
+                hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * States.TargetSpeed, hrp.AssemblyLinearVelocity.Y, moveDir.Z * States.TargetSpeed)
             end
         end
     end
 end)
 
 ----------------------------------------------------------------------
--- 4. СИСТЕМА ПОДСВЕТКИ ИГРОКОВ (HIGHLIGHT ESP)
+-- 3. СИСТЕМА ПОДСВЕТКИ ИГРОКОВ (HIGHLIGHT ESP)
 ----------------------------------------------------------------------
 local function applyESP(player)
     if player == LocalPlayer then return end
@@ -133,7 +104,7 @@ end
 Players.PlayerAdded:Connect(applyESP)
 
 ----------------------------------------------------------------------
--- 5. МЕХАНИКА СВОБОДНОГО ПЕРЕТАСКИВАНИЯ КНОПКИ (Touch / Mouse)
+-- 4. МЕХАНИКА СВОБОДНОГО ПЕРЕТАСКИВАНИЯ КНОПКИ (Touch / Mouse)
 ----------------------------------------------------------------------
 local function makeDraggable(guiObject)
     local dragging = false
@@ -177,7 +148,7 @@ local function makeDraggable(guiObject)
 end
 
 ----------------------------------------------------------------------
--- 6. СОЗДАНИЕ ИНТЕРФЕЙСА (GUI)
+-- 5. СОЗДАНИЕ ИНТЕРФЕЙСА (GUI)
 ----------------------------------------------------------------------
 local parentGui = LocalPlayer:WaitForChild("PlayerGui")
 local oldGui = parentGui:FindFirstChild("ViolenceDistrictMenu")
@@ -276,18 +247,11 @@ local function createToggleButton(name, text, posY, callback)
 end
 
 createToggleButton("Noclip", "Noclip", 55, function(enabled)
-    toggleNoclip(enabled)
+    States.Noclip = enabled
 end)
 
 createToggleButton("Speed", "Speed Boost", 105, function(enabled)
     States.SpeedEnabled = enabled
-    if not enabled then
-        local character = LocalPlayer.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then humanoid.WalkSpeed = States.DefaultSpeed end
-        end
-    end
 end)
 
 createToggleButton("ESP", "Highlight ESP", 155, function(enabled)
@@ -344,7 +308,7 @@ PlusBtn.MouseButton1Click:Connect(function()
 end)
 
 ----------------------------------------------------------------------
--- 7. АНИМАЦИЯ ОКНА
+-- 6. АНИМАЦИЯ ОКНА
 ----------------------------------------------------------------------
 local menuOpen = false
 local function toggleMenu()
@@ -359,12 +323,12 @@ local function toggleMenu()
         local tween = TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 280, 0, 0)
         })
-        tween:Play()
         tween.Completed:Connect(function()
             if not menuOpen then
                 MainFrame.Visible = false
             end
         end)
+        tween:Play()
     end
 end
 
