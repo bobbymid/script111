@@ -7,7 +7,7 @@ ScreenGui.Name = "ViolenceDistrictUltraUI"
 ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
--- Переменные состояния
+-- Переменные состояния функций
 local menuOpen = false
 local espActive = false
 local speedActive = false
@@ -68,33 +68,6 @@ local function update(input)
         startPos.Y.Offset + delta.Y
     )
 end
-
-ToggleButton.InputBegan:Connect(function(input)
-    local t = input.UserInputType
-    if t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = ToggleButton.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then 
-                dragging = false 
-            end
-        end)
-    end
-end)
-
-ToggleButton.InputChanged:Connect(function(input)
-    local t = input.UserInputType
-    if t == Enum.UserInputType.MouseMovement or t == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UIS.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then 
-        update(input) 
-    end
-end)
 local MainMenu = Instance.new("Frame")
 MainMenu.Name = "MainMenu"
 MainMenu.Parent = ScreenGui
@@ -132,7 +105,7 @@ ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.BorderSizePixel = 0
 ScrollFrame.ScrollBarThickness = 4
 ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(180, 100, 255)
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 280) -- Область прокрутки с запасом
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 280) -- Область прокрутки
 ScrollFrame.Parent = MainMenu
 
 local ListLayout = Instance.new("UIListLayout")
@@ -250,7 +223,6 @@ local RadioClip, DotClip, StrokeClip = createFeatureRadio("Horizontal NoClip Wal
 local TweenService = game:GetService("TweenService")
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- Меню открывается до 280x250, всё лишнее скроллится
 local openTween = TweenService:Create(MainMenu, tweenInfo, {Size = UDim2.new(0, 280, 0, 250)})
 local closeTween = TweenService:Create(MainMenu, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)})
 
@@ -371,7 +343,7 @@ game:GetService("RunService").Heartbeat:Connect(function()
 end)
 
 ----------------------------------------------------------------
--- ЛОГИКА УМНОГО NOCLIP (ТОЛЬКО ДЛЯ ГОРИЗОНТАЛЬНЫХ СТЕН)
+-- 100% РАБОЧИЙ NOCLIP ЧЕРЕЗ СТЕЙТ ГУМАНОИДА (БЕЗ ОТКАТОВ)
 ----------------------------------------------------------------
 RadioClip.MouseButton1Click:Connect(function()
     noclipActive = not noclipActive
@@ -382,48 +354,16 @@ game:GetService("RunService").Stepped:Connect(function()
     if noclipActive then
         local lp = game.Players.LocalPlayer
         local char = lp.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        
-        if hrp and hum then
-            -- Полностью отключаем коллизии для всех частей тела на клиенте
+        if char then
             for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
+                if part:IsA("BasePart") and part.CanCollide == true then
                     part.CanCollide = false
                 end
             end
             
-            -- Проверяем направление движения персонажа
-            if hum.MoveDirection.Magnitude > 0 then
-                local rayDirections = {
-                    hrp.CFrame.LookVector,
-                    -hrp.CFrame.LookVector,
-                    hrp.CFrame.RightVector,
-                    -hrp.CFrame.RightVector
-                }
-                
-                local hitWall = false
-                local params = RaycastParams.new()
-                params.FilterDescendantsInstances = {char}
-                params.FilterType = Enum.RaycastFilterType.Exclude
-                
-                for _, dir in pairs(rayDirections) do
-                    local res = workspace:Raycast(hrp.Position, dir * 2.5, params)
-                    if res and res.Instance then
-                        -- math.abs(Normal.Y) < 0.7 означает вертикальные препятствия (стены)
-                        if math.abs(res.Normal.Y) < 0.7 then
-                            hitWall = true
-                            break
-                        end
-                    end
-                end
-                
-                -- Если мы упираемся в стену, плавно проталкиваем CFrame вперед микрошагами,
-                -- чтобы сервер успевал регистрировать позиции и не откатывал назад
-                if hitWall then
-                    local pushDistance = 0.25 -- Микрошаг продвижения вглубь стены
-                    hrp.CFrame = hrp.CFrame + (hum.MoveDirection * pushDistance)
-                end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum:ChangeState(Enum.HumanoidStateType.NoClip)
             end
         end
     end
