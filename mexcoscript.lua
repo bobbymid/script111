@@ -1,5 +1,5 @@
 -- ===================================================================
--- Violence District - ESP & Clean UI Fix
+-- Violence District - ESP, Noclip & Clean UI
 -- ===================================================================
 
 local Players = game:GetService("Players")
@@ -13,11 +13,28 @@ local LocalPlayer = Players.LocalPlayer
 -- 1. НАСТРОЙКИ И СОСТОЯНИЯ
 ----------------------------------------------------------------------
 local States = {
+    Noclip = false,
     ESPEnabled = false
 }
 
 ----------------------------------------------------------------------
--- 2. СИСТЕМА ПОДСВЕТКИ ИГРОКОВ (HIGHLIGHT ESP)
+-- 2. ЛОГИКА NOCLIP (ЧЕРЕЗ RUNSERVICE.STEPPED)
+----------------------------------------------------------------------
+RunService.Stepped:Connect(function()
+    if not States.Noclip then return end
+    
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+end)
+
+----------------------------------------------------------------------
+-- 3. СИСТЕМА ПОДСВЕТКИ ИГРОКОВ (HIGHLIGHT ESP)
 ----------------------------------------------------------------------
 local function applyESP(player)
     if player == LocalPlayer then return end
@@ -66,7 +83,7 @@ end
 Players.PlayerAdded:Connect(applyESP)
 
 ----------------------------------------------------------------------
--- 3. МЕХАНИКА СВОБОДНОГО ПЕРЕТАСКИВАНИЯ КНОПКИ
+-- 4. МЕХАНИКА СВОБОДНОГО ПЕРЕТАСКИВАНИЯ КНОПКИ
 ----------------------------------------------------------------------
 local function makeDraggable(guiObject)
     local dragging = false
@@ -110,7 +127,7 @@ local function makeDraggable(guiObject)
 end
 
 ----------------------------------------------------------------------
--- 4. СОЗДАНИЕ ФУТУРИСТИЧНОГО ИНТЕРФЕЙСА (GUI)
+-- 5. СОЗДАНИЕ ФУТУРИСТИЧНОГО ИНТЕРФЕЙСА (GUI)
 ----------------------------------------------------------------------
 local parentGui = LocalPlayer:WaitForChild("PlayerGui")
 local oldGui = parentGui:FindFirstChild("ViolenceDistrictMenu")
@@ -156,11 +173,11 @@ btnGlow.Parent = MenuButton
 
 makeDraggable(MenuButton)
 
--- Главное окно
+-- Главное окно (высота подстроена под 2 кнопки)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 250) -- Уменьшена высота под оставшийся функционал
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -125)
+MainFrame.Size = UDim2.new(0, 320, 0, 310) 
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -155)
 MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
 MainFrame.BackgroundTransparency = 0.2
 MainFrame.Visible = false
@@ -268,10 +285,12 @@ local function createToggleButton(text, callback)
     return btn
 end
 
+-- Создаем кнопки интерфейса
+createToggleButton("Noclip", function(enabled) States.Noclip = enabled end)
 createToggleButton("Highlight ESP", function(enabled) toggleESP(enabled) end)
 
 ----------------------------------------------------------------------
--- 5. АНИМАЦИЯ ОКНА И ЛОГИКА ОТКРЫТИЯ
+-- 6. АНИМАЦИЯ ОКНА И ЛОГИКА ОТКРЫТИЯ
 ----------------------------------------------------------------------
 local menuOpen = false
 
@@ -281,7 +300,7 @@ MenuButton.MouseButton1Click:Connect(function()
         MainFrame.Visible = true
         MainFrame.Size = UDim2.new(0, 320, 0, 0)
         TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 320, 0, 250)
+            Size = UDim2.new(0, 320, 0, 310)
         }):Play()
         btnGlow.Visible = true
     else
