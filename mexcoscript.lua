@@ -1,5 +1,5 @@
 -- ===================================================================
--- Violence District - Key System, ESP, Auto Parry & Clean UI
+-- Violence District - Key System, ESP, Auto Parry, Griddy & Clean UI
 -- ===================================================================
 
 local Players = game:GetService("Players")
@@ -133,8 +133,72 @@ local function startMainCheat()
 
     local States = {
         ESPEnabled = false,
-        AutoParryEnabled = false
+        AutoParryEnabled = false,
+        GriddyEnabled = false
     }
+
+    -- ID для эмоции Griddy
+    local GRIDDY_ANIM_ID = "rbxassetid://131695692404479" 
+    local griddyTrack = nil
+    local loopConnection = nil
+
+    local function stopGriddy()
+        if loopConnection then loopConnection:Disconnect() loopConnection = nil end
+        if griddyTrack then griddyTrack:Stop() griddyTrack = nil end
+    end
+
+    local function startGriddy()
+        stopGriddy()
+        if not States.GriddyEnabled then return end
+        
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local humanoid = character:WaitForChild("Humanoid", 5)
+        local animator = humanoid:WaitForChild("Animator", 5)
+        if not animator then return end
+
+        local animation = Instance.new("Animation")
+        animation.AnimationId = GRIDDY_ANIM_ID
+
+        griddyTrack = animator:LoadAnimation(animation)
+        griddyTrack.Priority = Enum.AnimationPriority.Action4
+        griddyTrack.Looped = true
+        griddyTrack:Play()
+
+        loopConnection = RunService.Heartbeat:Connect(function()
+            if not States.GriddyEnabled then
+                stopGriddy()
+                return
+            end
+
+            if not character or not character:IsDescendantOf(workspace) then
+                stopGriddy()
+                return
+            end
+
+            if griddyTrack and not griddyTrack.IsPlaying then
+                griddyTrack:Play()
+            end
+
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                local trackId = string.match(track.Animation.AnimationId, "%d+")
+                local griddyIdClean = string.match(GRIDDY_ANIM_ID, "%d+")
+                
+                if trackId ~= griddyIdClean then
+                    track:Stop(0)
+                end
+            end
+        end)
+    end
+
+    -- Перезапуск при возрождении/смерти для Griddy
+    LocalPlayer.CharacterAdded:Connect(function()
+        if States.GriddyEnabled then
+            task.wait(1.5)
+            startGriddy()
+        end
+    end)
 
     -- ESP Система
     local function applyESP(player)
@@ -183,14 +247,12 @@ local function startMainCheat()
         if not character or not character:FindFirstChild("HumanoidRootPart") then return end
         local myHrp = character.HumanoidRootPart
 
-        -- Проверяем окружение на наличие врагов/хитбоксов близко к вам (например, в радиусе 12 стад)
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 local enemyHrp = player.Character:FindFirstChild("HumanoidRootPart")
                 if enemyHrp then
                     local distance = (myHrp.Position - enemyHrp.Position).Magnitude
-                    if distance <= 12 then -- Дистанция срабатывания парирования
-                        -- Попытка вызвать событие парирования через ReplicatedStorage (если в игре есть RemoteEvent для кинжала)
+                    if distance <= 12 then
                         local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") or game:GetService("ReplicatedStorage")
                         local parryEvent = remotes:FindFirstChild("Parry") or remotes:FindFirstChild("DaggerParry") or remotes:FindFirstChild("UseAbility")
                         
@@ -270,8 +332,8 @@ local function startMainCheat()
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 320, 0, 300) -- Увеличена высота под две кнопки
-    MainFrame.Position = UDim2.new(0.5, -160, 0.5, -150)
+    MainFrame.Size = UDim2.new(0, 320, 0, 355) -- Увеличена высота под три кнопки
+    MainFrame.Position = UDim2.new(0.5, -160, 0.5, -177)
     MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
     MainFrame.BackgroundTransparency = 0.2
     MainFrame.Visible = false
@@ -355,9 +417,17 @@ local function startMainCheat()
         return btn
     end
 
-    -- Создаем кнопки функций
+    -- Создаем кнопки функций в меню
     createToggleButton("Highlight ESP", function(enabled) toggleESP(enabled) end)
     createToggleButton("Auto Parry", function(enabled) States.AutoParryEnabled = enabled end)
+    createToggleButton("Griddy Emote", function(enabled)
+        States.GriddyEnabled = enabled
+        if enabled then
+            startGriddy()
+        else
+            stopGriddy()
+        end
+    end)
 
     local menuOpen = false
     MenuButton.MouseButton1Click:Connect(function()
@@ -366,7 +436,7 @@ local function startMainCheat()
             MainFrame.Visible = true
             MainFrame.Size = UDim2.new(0, 320, 0, 0)
             TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 320, 0, 300)
+                Size = UDim2.new(0, 320, 0, 355)
             }):Play()
             btnGlow.Visible = true
         else
