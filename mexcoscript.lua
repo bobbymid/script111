@@ -1,5 +1,5 @@
 -- ===================================================================
--- Violence District - Key System (24h), Scroll, Drag & Full Clean UI
+-- Violence District - Key System, ESP, Auto Parry, Fixed Auto Skill Check, Griddy & UI
 -- ===================================================================
 
 local Players = game:GetService("Players")
@@ -23,7 +23,7 @@ local validKeys = {
 
 local parentGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Проверка сохраненного доступа на 24 часа (в секундах: 24 * 3600 = 86400)
+-- Проверка сохраненного доступа на 24 часа (86400 секунд)
 local function hasValidSession()
     local savedTime = getgenv().VD_AccessExpiry
     if savedTime and os.time() < savedTime then
@@ -47,93 +47,75 @@ local function startMainCheat()
         AutoSkillCheckEnabled = false
     }
 
-    -- Конфигурация Auto Skill Check
-    local CONFIG = {
-        CheckInterval = 0.01,
-        TriggerKey = Enum.KeyCode.Space,
-        CustomTapX = 0.5,
-        CustomTapY = 0.5,
-    }
-
-    local skillCheckConnection = nil
-
-    local function triggerMobileTap()
-        local viewportSize = workspace.CurrentCamera.ViewportSize
-        local tapX = viewportSize.X * CONFIG.CustomTapX
-        local tapY = viewportSize.Y * CONFIG.CustomTapY
-
-        VirtualInputManager:SendTouchEvent(0, 0, tapX, tapY)
-        task.wait(0.02)
-        VirtualInputManager:SendTouchEvent(0, 2, tapX, tapY)
-    end
-
+    -- Надежная эмуляция нажатия для Skill Check
     local function hitSkillCheck()
-        VirtualInputManager:SendKeyEvent(true, CONFIG.TriggerKey, false, game)
-        task.wait(0.02)
-        VirtualInputManager:SendKeyEvent(false, CONFIG.TriggerKey, false, game)
-        triggerMobileTap()
-    end
-
-    local function processSkillCheckUI()
-        local skillCheckGui = parentGui:FindFirstChild("SkillCheck") 
-                           or parentGui:FindFirstChild("GeneratorGui") 
-                           or parentGui:FindFirstChild("RepairGui")
-
-        if not skillCheckGui or not skillCheckGui.Enabled then
-            return
-        end
-
-        local mainFrame = skillCheckGui:FindFirstChild("Frame") or skillCheckGui:FindFirstChild("Main")
-        if not mainFrame then return end
-
-        local needle = mainFrame:FindFirstChild("Needle") or mainFrame:FindFirstChild("Pointer")
-        local perfectZone = mainFrame:FindFirstChild("PerfectZone") or mainFrame:FindFirstChild("WhiteZone")
-
-        if needle and perfectZone and needle.Visible and perfectZone.Visible then
-            if needle:IsA("GuiObject") and needle.Rotation ~= nil then
-                local needleAngle = needle.Rotation % 360
-                local targetAngle = perfectZone.Rotation % 360
-                local tolerance = 3
-                
-                if math.abs(needleAngle - targetAngle) <= tolerance then
-                    hitSkillCheck()
-                    task.wait(0.5)
-                end
-            elseif needle:IsA("GuiObject") then
-                local needleX = needle.AbsolutePosition.X
-                local perfectX = perfectZone.AbsolutePosition.X
-                local perfectWidth = perfectZone.AbsoluteSize.X
-
-                if needleX >= perfectX and needleX <= (perfectX + perfectWidth) then
-                    hitSkillCheck()
-                    task.wait(0.5)
-                end
-            end
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+            task.wait(0.02)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+        end)
+        -- Резервный метод через виртуальный тач по центру экрана
+        pcall(function()
+            local viewportSize = workspace.CurrentCamera.ViewportSize
+            VirtualInputManager:SendTouchEvent(0, 0, viewportSize.X * 0.5, viewportSize.Y * 0.5)
+            task.wait(0.02)
+            VirtualInputManager:SendTouchEvent(0, 2, viewportSize.X * 0.5, viewportSize.Y * 0.5)
+        end)
+        -- Системный вызов клавиши (если поддерживается эксплойтером)
+        if keypress and keyrelease then
+            pcall(function()
+                keypress(0x20)
+                task.wait(0.02)
+                keyrelease(0x20)
+            end)
         end
     end
 
-    local function isPlayerRepairing()
-        local character = LocalPlayer.Character
-        if not character then return false end
-        
-        if character:GetAttribute("IsRepairing") or LocalPlayer:GetAttribute("Repairing") then
-            return true
-        end
-
-        local activeGui = parentGui:FindFirstChild("SkillCheck") or parentGui:FindFirstChild("RepairGui")
-        if activeGui and activeGui.Enabled then
-            return true
-        end
-
-        return false
-    end
-
+    -- Универсальный поиск и авто-клик по интерфейсу проверки навыков
+    local skillCheckConnection = nil
     local function manageAutoSkillCheck(enable)
         if enable then
             if not skillCheckConnection then
                 skillCheckConnection = RunService.Heartbeat:Connect(function()
-                    if States.AutoSkillCheckEnabled and isPlayerRepairing() then
-                        processSkillCheckUI()
+                    if not States.AutoSkillCheckEnabled then return end
+                    
+                    -- Сканируем все активные GUI на наличие элементов скилл-чека
+                    for _, gui in ipairs(parentGui:GetChildren()) do
+                        if gui:IsA("ScreenGui") and gui.Enabled then
+                            for _, descendant in ipairs(gui:GetDescendants()) do
+                                if descendant:IsA("Frame") or descendant:IsA("ImageLabel") then
+                                    -- Ищем указатель (needle/pointer/bar) и зону (zone/target/perfect)
+                                    local needle = descendant:FindFirstChild("Needle") or descendant:FindFirstChild("Pointer") or descendant:FindFirstChild("Bar")
+                                    local zone = descendant:FindFirstChild("PerfectZone") or descendant:FindFirstChild("WhiteZone") or descendant:FindFirstChild("TargetZone") or descendant:FindFirstChild("Zone")
+                                    
+                                    if needle and zone and needle.Visible and zone.Visible then
+                                        if needle:IsA("GuiObject") and zone:IsA("GuiObject") then
+                                            -- Если это круговой скилл-чек (по вращению)
+                                            if needle.Rotation ~= nil and zone.Rotation ~= nil then
+                                                local needleAngle = needle.Rotation % 360
+                                                local targetAngle = zone.Rotation % 360
+                                                local tolerance = 15 -- Увеличенный допуск для стабильности
+                                                
+                                                if math.abs(needleAngle - targetAngle) <= tolerance or math.abs(needleAngle - targetAngle) >= (360 - tolerance) then
+                                                    hitSkillCheck()
+                                                    task.wait(0.4)
+                                                end
+                                            -- Если это линейный скилл-чек (по позиции на полоске)
+                                            else
+                                                local needleX = needle.AbsolutePosition.X
+                                                local perfectX = zone.AbsolutePosition.X
+                                                local perfectWidth = zone.AbsoluteSize.X
+
+                                                if needleX >= (perfectX - 10) and needleX <= (perfectX + perfectWidth + 10) then
+                                                    hitSkillCheck()
+                                                    task.wait(0.4)
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
                     end
                 end)
             end
@@ -287,7 +269,7 @@ local function startMainCheat()
         end
     end)
 
-    -- Универсальная функция перетаскивания (для кнопки и для главного окна)
+    -- Перетаскивание элементов
     local function makeDraggable(guiObject, handle)
         handle = handle or guiObject
         local dragging, dragInput, dragStart, startPos = false, nil, Vector3.new(), UDim2.new()
@@ -386,7 +368,7 @@ local function startMainCheat()
     frameStroke.Transparency = 0.5
     frameStroke.Parent = MainFrame
 
-    -- Заголовок (он же зона для перетаскивания окна)
+    -- Заголовок (зона для перетаскивания окна пальцем)
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 50)
     Title.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -406,7 +388,7 @@ local function startMainCheat()
     titleStroke.Thickness = 1
     titleStroke.Parent = Title
 
-    makeDraggable(MainFrame, Title) -- Теперь окно можно двигать за шапку
+    makeDraggable(MainFrame, Title)
 
     -- Крестик закрытия скрипта справа сверху
     local CloseBtn = Instance.new("TextButton")
@@ -434,7 +416,7 @@ local function startMainCheat()
     ScrollingContainer.Size = UDim2.new(1, 0, 1, -60)
     ScrollingContainer.Position = UDim2.new(0, 0, 0, 60)
     ScrollingContainer.BackgroundTransparency = 1
-    ScrollingContainer.CanvasSize = UDim2.new(0, 0, 0, 260) -- Высота содержимого под прокрутку
+    ScrollingContainer.CanvasSize = UDim2.new(0, 0, 0, 260)
     ScrollingContainer.ScrollBarThickness = 4
     ScrollingContainer.Parent = MainFrame
 
@@ -480,7 +462,7 @@ local function startMainCheat()
         return btn
     end
 
-    -- Создаем кнопки функций в скролле
+    -- Кнопки управления в меню со скроллом
     createToggleButton("Highlight ESP", function(enabled) toggleESP(enabled) end)
     createToggleButton("Auto Parry", function(enabled) States.AutoParryEnabled = enabled end)
     createToggleButton("Auto Skill Check", function(enabled) 
@@ -522,7 +504,7 @@ local function startMainCheat()
 end
 
 ----------------------------------------------------------------------
--- 2. ПРОВЕРКА СЕССИИ ИЛИ ЗАПУСК ОКНА КЛЮЧЕЙ
+-- 2. ПРОВЕРКА СЕССИИ НА 24 ЧАСА ИЛИ ОКНО КЛЮЧЕЙ
 ----------------------------------------------------------------------
 if hasValidSession() then
     startMainCheat()
@@ -626,7 +608,7 @@ else
     SendBtn.MouseButton1Click:Connect(function()
         local enteredKey = KeyBox.Text
         if validKeys[enteredKey] then
-            -- Даем доступ ровно на 24 часа (86400 секунд)
+            -- Выдаем доступ ровно на 24 часа
             getgenv().VD_AccessExpiry = os.time() + 86400
             StatusLabel.TextColor3 = Color3.fromRGB(50, 255, 50)
             StatusLabel.Text = "Success! 24h Access Granted."
